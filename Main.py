@@ -16,10 +16,12 @@ def PSNR(ori, comp) :
 
 t_start = timeit.default_timer()
 
+#define resize factor
+resizeFac = 0.25
 # define the patch size
-halfPatchSize = 1
+halfPatchSize = 2
 # numIte = int(input('set the iteration: ').strip())  # can be improved into asking input
-numIte= 8
+numIte= 4
 
 patchSize = [2*halfPatchSize+1, 2*halfPatchSize+1]  # [x,y]
 
@@ -28,8 +30,7 @@ patchSize = [2*halfPatchSize+1, 2*halfPatchSize+1]  # [x,y]
 # import data
 atlas = sci.loadmat('UKMainzTestImages.mat')
 # extract atlas for CT and CBCT from the Atlas + random sliceNum
-#sliceNum = random.randint(70, 168)
-sliceNum = int(156)
+sliceNum = random.randint(70, 168)
 atlasCT = atlas['CTvol'][:, :, sliceNum]
 atlasCT = atlasCT / num.amax(atlasCT)
 atlasCBCT = atlas['warpedCBCT'][:, :, sliceNum]
@@ -42,16 +43,17 @@ currCT = atlas['CTvol'][:, :, targetsliceNum]
 currCBCT = atlas['warpedCBCT'][:, :, targetsliceNum]
 
 
-# rotAngle = random.choice([-5, 5])
-rotAngle = int(5)
-currCT = rotate(currCT, angle=rotAngle)
+
+rotAngle = random.choice([-5, 5])
+currCT = rotate(currCT, angle=rotAngle, reshape = False)
 currCT = currCT / num.amax(currCT)
-currCBCT = rotate(currCBCT, angle=rotAngle)
+currCBCT = rotate(currCBCT, angle=rotAngle, reshape = False)
 currCBCT = currCBCT / num.amax(currCBCT)
-# resize slice OTD
-resizeFac = len(atlasCT[:, 0]) / len(currCT[:, 0])
+# resize the slices
 currCT = zoom(currCT, resizeFac)
 currCBCT = zoom(currCBCT, resizeFac)
+atlasCT = zoom(atlasCT, resizeFac)
+atlasCBCT = zoom(atlasCBCT, resizeFac)
 
 # generate the images
 # https://docs.scipy.org/doc/scipy/tutorial/signal.html)
@@ -102,13 +104,13 @@ testPatchB = num.zeros(patchSize)
 testPatchC = num.zeros(patchSize)
 testPatchD = num.zeros(patchSize)
 PSNRiter = int('0')
-tot = 0
+
+#%% loop di loop di loop
 # loop Iteration
 for it in range(numIte):
-    # debug
-    tot+=1
-    ##
+    print(f'going through {it+1}. Iteration')
     PSNRiter = it
+    
     shuffledXX = num.reshape(XXvec[num.random.permutation(imsizex*imsizey)], (imsizey, imsizex))
     shuffledYY = num.reshape(YYvec[num.random.permutation(imsizex*imsizey)], (imsizey, imsizex))
     RSF[:, :, 0] = shuffledXX - XX
@@ -116,46 +118,46 @@ for it in range(numIte):
     propamask = num.zeros(num.shape(currCBCT))
 
     # Phase II: Propagation of the good matches to the right and bottom
-    startx = halfPatchSize + 2
-    endx = imsizex - halfPatchSize
-    starty = halfPatchSize + 2
-    endy = imsizey - halfPatchSize
+    startx = halfPatchSize
+    endx = imsizex - halfPatchSize - 1
+    starty = halfPatchSize
+    endy = imsizey - halfPatchSize - 1 
 
     for j in range(starty, endy):
         for i in range(startx, endx):
             uA = int(min(max(i+NNF[j, i, 0], halfPatchSize+1), imsizex-halfPatchSize))
             uB = int(min(max(i+NNF[j, i-1, 0], halfPatchSize+1), imsizex-halfPatchSize))
             uC = int(min(max(i+NNF[j-1, i, 0], halfPatchSize+1), imsizex-halfPatchSize))
-            vA = int(min(max(i+NNF[j, i, 1], halfPatchSize+1), imsizey-halfPatchSize))
-            vB = int(min(max(i+NNF[j, i-1, 1], halfPatchSize+1), imsizey-halfPatchSize))
-            vC = int(min(max(i+NNF[j-1, i, 1], halfPatchSize+1), imsizey-halfPatchSize))
+            vA = int(min(max(j+NNF[j, i, 1], halfPatchSize+1), imsizey-halfPatchSize))
+            vB = int(min(max(j+NNF[j, i-1, 1], halfPatchSize+1), imsizey-halfPatchSize))
+            vC = int(min(max(j+NNF[j-1, i, 1], halfPatchSize+1), imsizey-halfPatchSize))
 
-            if halfPatchSize == 1:
-                if uA == 511:
-                    uA = 510
-                if vA == 511:
-                    vA = 510
-                if uB == 511:
-                    uB = 510
-                if vB == 511:
-                    vB = 510
-                if uC == 511:
-                    uC = 510
-                if vC == 511:
-                    vC = 510
-            elif halfPatchSize == 2:
-                if uA == 510:
-                    uA = 509
-                if vA == 510:
-                    vA = 509
-                if uB == 510:
-                    uB = 509
-                if vB == 510:
-                    vB = 509
-                if uC == 510:
-                    uC = 509
-                if vC == 510:
-                    vC = 509
+            # if halfPatchSize == 1:
+            #     if uA == 511:
+            #         uA = 510
+            #     if vA == 511:
+            #         vA = 510
+            #     if uB == 511:
+            #         uB = 510
+            #     if vB == 511:
+            #         vB = 510
+            #     if uC == 511:
+            #         uC = 510
+            #     if vC == 511:
+            #         vC = 510
+            # elif halfPatchSize == 2:
+            #     if uA == 510:
+            #         uA = 509
+            #     if vA == 510:
+            #         vA = 509
+            #     if uB == 510:
+            #         uB = 509
+            #     if vB == 510:
+            #         vB = 509
+            #     if uC == 510:
+            #         uC = 509
+            #     if vC == 510:
+            #         vC = 509
 
             currPatch = currCBCT[j-halfPatchSize: j +halfPatchSize+1, i-halfPatchSize: i+halfPatchSize+1]
             testPatchA = atlasCBCT[vA-halfPatchSize:vA +halfPatchSize+1, uA-halfPatchSize:uA+halfPatchSize+1]
@@ -189,16 +191,16 @@ for it in range(numIte):
                 g = int(min(max(umin + num.round((0.5**k) *RSF[vmin, umin, 0]), halfPatchSize+1), imsizex-halfPatchSize))
                 h = int(min(max(umin + num.round((0.5**k) *RSF[vmin, umin, 1]), halfPatchSize+1), imsizey-halfPatchSize))
 
-                if halfPatchSize == 1:
-                    if h == 511:
-                        h = 510
-                    if g == 511:
-                        g = 510
-                elif halfPatchSize == 2:
-                    if h == 510:
-                        h = 509
-                    if g == 510:
-                        g = 509
+                # if halfPatchSize == 1:
+                #     if h == 511:
+                #         h = 510
+                #     if g == 511:
+                #         g = 510
+                # elif halfPatchSize == 2:
+                #     if h == 510:
+                #         h = 509
+                #     if g == 510:
+                #         g = 509
 
                 testPatchD = atlasCBCT[h-halfPatchSize:h +halfPatchSize+1, g-halfPatchSize:g+halfPatchSize+1]
                 distD = num.sum((currPatch-testPatchD)**2)
@@ -207,41 +209,41 @@ for it in range(numIte):
                     NNF[j, i, 1] = h-j
 
     # Phase IV: Propagation of the good matches to the left up
-    for j in range(endy-1, starty-1, -1):
-        for i in range(endy-1, starty-1, -1):
+    for j in range(endy, starty-1, -1):
+        for i in range(endx, startx-1, -1):
             uA = int(min(max(i+NNF[j, i, 0], halfPatchSize+1), imsizex-halfPatchSize))
             uB = int(min(max(i+NNF[j, i+1, 0], halfPatchSize+1), imsizex-halfPatchSize))
             uC = int(min(max(i+NNF[j+1, i, 0], halfPatchSize+1), imsizex-halfPatchSize))
-            vA = int(min(max(i+NNF[j, i, 1], halfPatchSize+1), imsizey-halfPatchSize))
-            vB = int(min(max(i+NNF[j, i+1, 1], halfPatchSize+1), imsizey-halfPatchSize))
-            vC = int(min(max(i+NNF[j+1, i, 1], halfPatchSize+1), imsizey-halfPatchSize))
+            vA = int(min(max(j+NNF[j, i, 1], halfPatchSize+1), imsizey-halfPatchSize))
+            vB = int(min(max(j+NNF[j, i+1, 1], halfPatchSize+1), imsizey-halfPatchSize))
+            vC = int(min(max(j+NNF[j+1, i, 1], halfPatchSize+1), imsizey-halfPatchSize))
 
-            if halfPatchSize == 1:
-                if uA == 511:
-                    uA = 510
-                if vA == 511:
-                    vA = 510
-                if uB == 511:
-                    uB = 510
-                if vB == 511:
-                    vB = 510
-                if uC == 511:
-                    uC = 510
-                if vC == 511:
-                    vC = 510
-            elif halfPatchSize == 2:
-                if uA == 510:
-                    uA = 509
-                if vA == 510:
-                    vA = 509
-                if uB == 510:
-                    uB = 509
-                if vB == 510:
-                    vB = 509
-                if uC == 510:
-                    uC = 509
-                if vC == 510:
-                    vC = 509
+            # if halfPatchSize == 1:
+            #     if uA == 511:
+            #         uA = 510
+            #     if vA == 511:
+            #         vA = 510
+            #     if uB == 511:
+            #         uB = 510
+            #     if vB == 511:
+            #         vB = 510
+            #     if uC == 511:
+            #         uC = 510
+            #     if vC == 511:
+            #         vC = 510
+            # elif halfPatchSize == 2:
+            #     if uA == 510:
+            #         uA = 509
+            #     if vA == 510:
+            #         vA = 509
+            #     if uB == 510:
+            #         uB = 509
+            #     if vB == 510:
+            #         vB = 509
+            #     if uC == 510:
+            #         uC = 509
+            #     if vC == 510:
+            #         vC = 509
 
             currPatch = currCBCT[j-halfPatchSize: j +halfPatchSize+1, i-halfPatchSize: i+halfPatchSize+1]
             testPatchA = atlasCBCT[vA-halfPatchSize:vA +halfPatchSize+1, uA-halfPatchSize:uA+halfPatchSize+1]
@@ -275,16 +277,16 @@ for it in range(numIte):
                 g = int(min(max(umin + num.round((0.5**k) *RSF[vmin, umin, 0]), halfPatchSize+1), imsizex-halfPatchSize))
                 h = int(min(max(umin + num.round((0.5**k) *RSF[vmin, umin, 1]), halfPatchSize+1), imsizey-halfPatchSize))
 
-                if halfPatchSize == 1:
-                    if h == 511:
-                        h = 510
-                    if g == 511:
-                        g = 510
-                elif halfPatchSize == 2:
-                    if h == 510:
-                        h = 509
-                    if g == 510:
-                        g = 509
+                # if halfPatchSize == 1:
+                #     if h == 511:
+                #         h = 510
+                #     if g == 511:
+                #         g = 510
+                # elif halfPatchSize == 2:
+                #     if h == 510:
+                #         h = 509
+                #     if g == 510:
+                #         g = 509
 
                 testPatchD = atlasCBCT[h-halfPatchSize:h +halfPatchSize+1, g-halfPatchSize:g+halfPatchSize+1]
                 distD = num.sum((currPatch-testPatchD)**2)
@@ -335,4 +337,4 @@ for it in range(numIte):
     # plt.title('synth CT, Iteration: ' + str(it))
 
 stop = timeit.default_timer()
-print(f'Time: {stop-t_start}')
+print(f'Time: {stop-t_start} s')
