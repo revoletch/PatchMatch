@@ -4,15 +4,7 @@ import scipy.io as sci
 import numpy as num
 import matplotlib.pyplot as plt
 from scipy.ndimage import rotate, zoom
-from math import log10,sqrt
-
-def PSNR(ori, comp) :
-    mse = num.mean((ori-comp) ** 2)
-    if(mse == 0):
-        return 100
-    maxPixel = imsizex
-    psnr = 20 * log10(maxPixel / sqrt(mse))
-    return psnr
+from skimage import metrics as mcs
 
 def maxIndex(a,b):
     a = int(a)
@@ -31,9 +23,9 @@ def minIndex(a,b):
 t_start = timeit.default_timer()
 
 #define resize factor
-resizeFac = 1
+resizeFac = 0.25
 # define the patch size
-halfPatchSize = 1
+halfPatchSize = 2
 # iteration number
 numIte= 8
 
@@ -52,7 +44,7 @@ atlasCBCT = atlas['warpedCBCT'][:, :, sliceNum]
 atlasCBCT = atlasCBCT / num.amax(atlasCBCT)
 
 # creating slice of-the-day
-targetsliceNum = sliceNum + random.choice([3, -3])
+targetsliceNum = sliceNum + random.choice([5, -5])
 
 currCT = atlas['CTvol'][:, :, targetsliceNum]
 currCBCT = atlas['warpedCBCT'][:, :, targetsliceNum]
@@ -242,15 +234,16 @@ for it in range(numIte):
     # plt.colorbar()
     # plt.title('Propamask, Iteration: ' + str(it+1))
     # # image of NNF1
-    # plt.figure()
+    # # plt.figure()
     # plt.imshow(NNF[:,:,0])
-    # plt.get_cmap('Greys')
+    # plt.gray()
     # plt.colorbar()
     # plt.title('NNF1, Iteration: ' + str(it+1))
     # # image of NNF2
-    # plt.figure()
+    # # plt.figure()
     # plt.imshow(NNF[:,:,1])
     # plt.gray()
+    # plt.colorbar()
     # plt.title('NNF2, Iteration: ' + str(it+1))
     
     # Generation of the synthetic image
@@ -265,22 +258,22 @@ for it in range(numIte):
             synthCBCT[t,s] = atlasCBCT[pick_y, pick_x]
             synthCT[t,s] = atlasCT[pick_y, pick_x]
     # PSNR calculation
-    if PSNRiter != numIte:
-        CBCTpsnr[PSNRiter] = PSNR(currCBCT, synthCBCT)
-        CTpsnr[PSNRiter] = PSNR(currCT, synthCT)
-    
+    CTpsnr[PSNRiter] = mcs.peak_signal_noise_ratio(currCT, synthCT,data_range=1)
+    CBCTpsnr[PSNRiter] = mcs.peak_signal_noise_ratio(currCBCT, synthCBCT,data_range=1)
     # image synth CBCT
     plt.figure()
     plt.imshow(synthCBCT)
     plt.gray()
-    plt.title('synth CBCT, Iteration: ' + str(it+1))
+    plt.title(f'synth CBCT, Iteration: {it+1}, PSNR: {num.round(CBCTpsnr[PSNRiter],decimals=2)}')
     # image synth CT
     plt.figure()
     plt.imshow(synthCT)
     plt.gray()
-    plt.title('synth CT, Iteration: ' + str(it+1))
+    plt.title(f'synth CT, Iteration: {it+1}, PSNR: {num.round(CTpsnr[PSNRiter],decimals=2)}')
+    
+
 #plot the PSNR
-X = num.linspace(1,8, num=8)
+X = num.linspace(1,numIte, num=numIte)
 plt.figure()
 plt.plot(X,CTpsnr,color='red',marker = '.',linestyle='dashed')
 plt.plot(X,CBCTpsnr,color='blue',marker = '.',linestyle='dashed')
