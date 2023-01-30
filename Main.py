@@ -10,18 +10,32 @@ def PSNR(ori, comp) :
     mse = num.mean((ori-comp) ** 2)
     if(mse == 0):
         return 100
-    maxPixel = 512
+    maxPixel = imsizex
     psnr = 20 * log10(maxPixel / sqrt(mse))
     return psnr
+
+def maxIndex(a,b):
+    a = int(a)
+    test = a
+    if test<b:
+        test = b
+    return test
+
+def minIndex(a,b):
+    a = int(a)
+    test = a
+    if test>b:
+        test = b
+    return test
 
 t_start = timeit.default_timer()
 
 #define resize factor
-resizeFac = 0.25
+resizeFac = 1
 # define the patch size
-halfPatchSize = 2
-# numIte = int(input('set the iteration: ').strip())  # can be improved into asking input
-numIte= 4
+halfPatchSize = 1
+# iteration number
+numIte= 8
 
 patchSize = [2*halfPatchSize+1, 2*halfPatchSize+1]  # [x,y]
 
@@ -30,7 +44,8 @@ patchSize = [2*halfPatchSize+1, 2*halfPatchSize+1]  # [x,y]
 # import data
 atlas = sci.loadmat('UKMainzTestImages.mat')
 # extract atlas for CT and CBCT from the Atlas + random sliceNum
-sliceNum = random.randint(70, 168)
+# sliceNum = random.randint(70, 168)
+sliceNum = 139
 atlasCT = atlas['CTvol'][:, :, sliceNum]
 atlasCT = atlasCT / num.amax(atlasCT)
 atlasCBCT = atlas['warpedCBCT'][:, :, sliceNum]
@@ -44,7 +59,8 @@ currCBCT = atlas['warpedCBCT'][:, :, targetsliceNum]
 
 
 
-rotAngle = random.choice([-5, 5])
+# rotAngle = random.choice([-5, 5])
+rotAngle = 5
 currCT = rotate(currCT, angle=rotAngle, reshape = False)
 currCT = currCT / num.amax(currCT)
 currCBCT = rotate(currCBCT, angle=rotAngle, reshape = False)
@@ -66,12 +82,13 @@ atlasCBCT = zoom(atlasCBCT, resizeFac)
 # plt.imshow(atlasCBCT)
 # plt.gray()
 # plt.title('Atlas CBCT')
-# plt.show()
-# plt.figure()
-# plt.imshow(currCT)
-# plt.gray()
-# plt.title('currCT')
-# plt.show()
+# #CBCT showing HU deviation which could cause unnecessary radiation on the patient
+plt.show()
+plt.figure()
+plt.imshow(currCT)
+plt.gray()
+plt.title('currCT')
+plt.show()
 plt.figure()
 plt.imshow(currCBCT)
 plt.gray()
@@ -105,8 +122,9 @@ testPatchC = num.zeros(patchSize)
 testPatchD = num.zeros(patchSize)
 PSNRiter = int('0')
 
-#%% loop di loop di loop
-# loop Iteration
+
+#%% loopy loop
+
 for it in range(numIte):
     print(f'going through {it+1}. Iteration')
     PSNRiter = it
@@ -125,40 +143,13 @@ for it in range(numIte):
 
     for j in range(starty, endy):
         for i in range(startx, endx):
-            uA = int(min(max(i+NNF[j, i, 0], halfPatchSize+1), imsizex-halfPatchSize))
-            uB = int(min(max(i+NNF[j, i-1, 0], halfPatchSize+1), imsizex-halfPatchSize))
-            uC = int(min(max(i+NNF[j-1, i, 0], halfPatchSize+1), imsizex-halfPatchSize))
-            vA = int(min(max(j+NNF[j, i, 1], halfPatchSize+1), imsizey-halfPatchSize))
-            vB = int(min(max(j+NNF[j, i-1, 1], halfPatchSize+1), imsizey-halfPatchSize))
-            vC = int(min(max(j+NNF[j-1, i, 1], halfPatchSize+1), imsizey-halfPatchSize))
-
-            # if halfPatchSize == 1:
-            #     if uA == 511:
-            #         uA = 510
-            #     if vA == 511:
-            #         vA = 510
-            #     if uB == 511:
-            #         uB = 510
-            #     if vB == 511:
-            #         vB = 510
-            #     if uC == 511:
-            #         uC = 510
-            #     if vC == 511:
-            #         vC = 510
-            # elif halfPatchSize == 2:
-            #     if uA == 510:
-            #         uA = 509
-            #     if vA == 510:
-            #         vA = 509
-            #     if uB == 510:
-            #         uB = 509
-            #     if vB == 510:
-            #         vB = 509
-            #     if uC == 510:
-            #         uC = 509
-            #     if vC == 510:
-            #         vC = 509
-
+            uA = int(minIndex(maxIndex(i+NNF[j, i, 0], halfPatchSize), imsizex-halfPatchSize - 1))
+            uB = int(minIndex(maxIndex(i+NNF[j, i-1, 0], halfPatchSize), imsizex-halfPatchSize - 1))
+            uC = int(minIndex(maxIndex(i+NNF[j-1, i, 0], halfPatchSize), imsizex-halfPatchSize - 1))
+            vA = int(minIndex(maxIndex(j+NNF[j, i, 1], halfPatchSize), imsizey-halfPatchSize - 1))
+            vB = int(minIndex(maxIndex(j+NNF[j, i-1, 1], halfPatchSize), imsizey-halfPatchSize - 1))
+            vC = int(minIndex(maxIndex(j+NNF[j-1, i, 1], halfPatchSize), imsizey-halfPatchSize - 1))
+            
             currPatch = currCBCT[j-halfPatchSize: j +halfPatchSize+1, i-halfPatchSize: i+halfPatchSize+1]
             testPatchA = atlasCBCT[vA-halfPatchSize:vA +halfPatchSize+1, uA-halfPatchSize:uA+halfPatchSize+1]
             testPatchB = atlasCBCT[vB-halfPatchSize:vB +halfPatchSize+1, uB-halfPatchSize:uB+halfPatchSize+1]
@@ -188,19 +179,8 @@ for it in range(numIte):
 
             # Phase III: Random search phase
             for k in range(0, 8):
-                g = int(min(max(umin + num.round((0.5**k) *RSF[vmin, umin, 0]), halfPatchSize+1), imsizex-halfPatchSize))
-                h = int(min(max(umin + num.round((0.5**k) *RSF[vmin, umin, 1]), halfPatchSize+1), imsizey-halfPatchSize))
-
-                # if halfPatchSize == 1:
-                #     if h == 511:
-                #         h = 510
-                #     if g == 511:
-                #         g = 510
-                # elif halfPatchSize == 2:
-                #     if h == 510:
-                #         h = 509
-                #     if g == 510:
-                #         g = 509
+                g = int(minIndex(maxIndex(umin + num.round((0.5**k) *RSF[vmin, umin, 0]), halfPatchSize), imsizex-halfPatchSize - 1))
+                h = int(minIndex(maxIndex(vmin + num.round((0.5**k) *RSF[vmin, umin, 1]), halfPatchSize), imsizey-halfPatchSize - 1))
 
                 testPatchD = atlasCBCT[h-halfPatchSize:h +halfPatchSize+1, g-halfPatchSize:g+halfPatchSize+1]
                 distD = num.sum((currPatch-testPatchD)**2)
@@ -211,39 +191,12 @@ for it in range(numIte):
     # Phase IV: Propagation of the good matches to the left up
     for j in range(endy, starty-1, -1):
         for i in range(endx, startx-1, -1):
-            uA = int(min(max(i+NNF[j, i, 0], halfPatchSize+1), imsizex-halfPatchSize))
-            uB = int(min(max(i+NNF[j, i+1, 0], halfPatchSize+1), imsizex-halfPatchSize))
-            uC = int(min(max(i+NNF[j+1, i, 0], halfPatchSize+1), imsizex-halfPatchSize))
-            vA = int(min(max(j+NNF[j, i, 1], halfPatchSize+1), imsizey-halfPatchSize))
-            vB = int(min(max(j+NNF[j, i+1, 1], halfPatchSize+1), imsizey-halfPatchSize))
-            vC = int(min(max(j+NNF[j+1, i, 1], halfPatchSize+1), imsizey-halfPatchSize))
-
-            # if halfPatchSize == 1:
-            #     if uA == 511:
-            #         uA = 510
-            #     if vA == 511:
-            #         vA = 510
-            #     if uB == 511:
-            #         uB = 510
-            #     if vB == 511:
-            #         vB = 510
-            #     if uC == 511:
-            #         uC = 510
-            #     if vC == 511:
-            #         vC = 510
-            # elif halfPatchSize == 2:
-            #     if uA == 510:
-            #         uA = 509
-            #     if vA == 510:
-            #         vA = 509
-            #     if uB == 510:
-            #         uB = 509
-            #     if vB == 510:
-            #         vB = 509
-            #     if uC == 510:
-            #         uC = 509
-            #     if vC == 510:
-            #         vC = 509
+            uA = int(minIndex(maxIndex(i+NNF[j, i, 0], halfPatchSize), imsizex-halfPatchSize - 1))
+            uB = int(minIndex(maxIndex(i+NNF[j, i+1, 0], halfPatchSize), imsizex-halfPatchSize - 1))
+            uC = int(minIndex(maxIndex(i+NNF[j+1, i, 0], halfPatchSize), imsizex-halfPatchSize - 1))
+            vA = int(minIndex(maxIndex(j+NNF[j, i, 1], halfPatchSize), imsizey-halfPatchSize - 1))
+            vB = int(minIndex(maxIndex(j+NNF[j, i+1, 1], halfPatchSize), imsizey-halfPatchSize - 1))
+            vC = int(minIndex(maxIndex(j+NNF[j+1, i, 1], halfPatchSize), imsizey-halfPatchSize - 1))
 
             currPatch = currCBCT[j-halfPatchSize: j +halfPatchSize+1, i-halfPatchSize: i+halfPatchSize+1]
             testPatchA = atlasCBCT[vA-halfPatchSize:vA +halfPatchSize+1, uA-halfPatchSize:uA+halfPatchSize+1]
@@ -274,19 +227,8 @@ for it in range(numIte):
 
             # Phase III: Random search phase
             for k in range(0, 8):
-                g = int(min(max(umin + num.round((0.5**k) *RSF[vmin, umin, 0]), halfPatchSize+1), imsizex-halfPatchSize))
-                h = int(min(max(umin + num.round((0.5**k) *RSF[vmin, umin, 1]), halfPatchSize+1), imsizey-halfPatchSize))
-
-                # if halfPatchSize == 1:
-                #     if h == 511:
-                #         h = 510
-                #     if g == 511:
-                #         g = 510
-                # elif halfPatchSize == 2:
-                #     if h == 510:
-                #         h = 509
-                #     if g == 510:
-                #         g = 509
+                g = int(minIndex(maxIndex(umin + num.round((0.5**k) *RSF[vmin, umin, 0]), halfPatchSize+1), imsizex-halfPatchSize-1))
+                h = int(minIndex(maxIndex(vmin + num.round((0.5**k) *RSF[vmin, umin, 1]), halfPatchSize+1), imsizey-halfPatchSize-1))
 
                 testPatchD = atlasCBCT[h-halfPatchSize:h +halfPatchSize+1, g-halfPatchSize:g+halfPatchSize+1]
                 distD = num.sum((currPatch-testPatchD)**2)
@@ -297,44 +239,58 @@ for it in range(numIte):
     # plt.figure()
     # plt.imshow(propamask)
     # plt.gray()
-    # plt.title('Propamask, Iteration: ' + str(it))
+    # plt.colorbar()
+    # plt.title('Propamask, Iteration: ' + str(it+1))
     # # image of NNF1
     # plt.figure()
     # plt.imshow(NNF[:,:,0])
-    # plt.gray()
-    # plt.title('NNF1, Iteration: ' + str(it))
+    # plt.get_cmap('Greys')
+    # plt.colorbar()
+    # plt.title('NNF1, Iteration: ' + str(it+1))
     # # image of NNF2
     # plt.figure()
     # plt.imshow(NNF[:,:,1])
     # plt.gray()
-    # plt.title('NNF2, Iteration: ' + str(it))
-    # Generation of the synthetic image
+    # plt.title('NNF2, Iteration: ' + str(it+1))
     
+    # Generation of the synthetic image
     synthCBCT = num.zeros(num.shape(currCBCT))
     synthCT = num.zeros(num.shape(currCBCT))
 
     for s in range(startx, endx):
         for t in range(starty, endy):
-            pick_x = int(min(max(s+NNF[t, s, 0], 1), imsizex-1))
-            pick_y = int(min(max(t+NNF[t, s, 1], 1), imsizey-1))
+            pick_x = int(minIndex(maxIndex(s+NNF[t, s, 0], 0), imsizex-1))
+            pick_y = int(minIndex(maxIndex(t+NNF[t, s, 1], 0), imsizey-1))
 
-            synthCBCT[t, s] = atlasCBCT[pick_x, pick_y]
-            synthCT[t, s] = atlasCT[pick_x, pick_y]
-    # # PSNR calculation
+            synthCBCT[t,s] = atlasCBCT[pick_y, pick_x]
+            synthCT[t,s] = atlasCT[pick_y, pick_x]
+    # PSNR calculation
     if PSNRiter != numIte:
         CBCTpsnr[PSNRiter] = PSNR(currCBCT, synthCBCT)
-        # CTpsnr = PSNR(currCT, synthCT)
+        CTpsnr[PSNRiter] = PSNR(currCT, synthCT)
     
     # image synth CBCT
     plt.figure()
     plt.imshow(synthCBCT)
     plt.gray()
-    plt.title('synth CBCT, Iteration: ' + str(it))
-    # # image synth CT
-    # plt.figure()
-    # plt.imshow(synthCT)
-    # plt.gray()
-    # plt.title('synth CT, Iteration: ' + str(it))
+    plt.title('synth CBCT, Iteration: ' + str(it+1))
+    # image synth CT
+    plt.figure()
+    plt.imshow(synthCT)
+    plt.gray()
+    plt.title('synth CT, Iteration: ' + str(it+1))
+#plot the PSNR
+X = num.linspace(1,8, num=8)
+plt.figure()
+plt.plot(X,CTpsnr,color='red',marker = '.',linestyle='dashed')
+plt.plot(X,CBCTpsnr,color='blue',marker = '.',linestyle='dashed')
+plt.legend(['CT PSNR','CBCT PSNR'])
+plt.title('PSNR')
+
+    
 
 stop = timeit.default_timer()
-print(f'Time: {stop-t_start} s')
+# counting the duration of the code
+duration = stop-t_start
+duration  = num.round(duration, decimals=2)
+print(f'Time: {duration} s')
